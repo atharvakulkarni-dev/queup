@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QueUp — Smart Queue & Booking</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --cream:#FAF7F2;--warm:#FFFDF9;--ink:#1A1714;--ink2:#4A4540;--ink3:#9A9590;
+  --teal:#0F7B6C;--teal2:#1D9E8A;--teal-l:#E0F2EE;
+  --amber:#E8820C;--amber-l:#FEF3E2;
+  --red:#D93025;--red-l:#FDECEA;
+  --green:#2E7D32;--green-l:#E8F5E9;
+  --border:rgba(26,23,20,0.12);--shadow:0 2px 16px rgba(0,0,0,0.07);
+  --r:12px;--r2:20px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh}
+a{text-decoration:none;color:inherit}
+input,select,textarea,button{font-family:'DM Sans',sans-serif}
+
+/* UTILS */
+.hidden{display:none!important}
+.page{display:none;min-height:100vh}
+.page.active{display:block}
+.serif{font-family:'DM Serif Display',serif}
+.teal{color:var(--teal)}
+.muted{color:var(--ink3)}
+.card{background:var(--warm);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.badge{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.75rem;font-weight:500}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-amber{background:var(--amber-l);color:var(--amber)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.badge-teal{background:var(--teal-l);color:var(--teal)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:.7rem 1.5rem;border-radius:100px;border:none;cursor:pointer;font-size:.9rem;font-weight:500;transition:all .2s}
+.btn-primary{background:var(--teal);color:#fff}
+.btn-primary:hover{background:var(--teal2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(15,123,108,.2)}
+.btn-outline{background:transparent;color:var(--ink);border:1.5px solid var(--border)}
+.btn-outline:hover{border-color:var(--ink2)}
+.btn-sm{padding:.45rem 1rem;font-size:.82rem}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{opacity:.9}
+.tag{display:inline-block;background:var(--teal-l);color:var(--teal);padding:3px 12px;border-radius:100px;font-size:.75rem;font-weight:500}
+
+/* FORM */
+.field{margin-bottom:1.1rem}
+label{display:block;font-size:.83rem;font-weight:500;color:var(--ink2);margin-bottom:5px}
+input[type=text],input[type=email],input[type=tel],input[type=password],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;padding:.65rem .9rem;border:1.5px solid var(--border);border-radius:var(--r);
+  font-size:.93rem;background:var(--warm);color:var(--ink);outline:none;
+  transition:border-color .15s,box-shadow .15s
+}
+input:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,123,108,.1)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234A4540' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:2rem;appearance:none}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+@media(max-width:480px){.field-row{grid-template-columns:1fr}}
+.err-msg{font-size:.75rem;color:var(--red);margin-top:3px;display:none}
+.err-msg.show{display:block}
+
+/* NAV */
+#main-nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(250,247,242,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.9rem 5%
+}
+.nav-logo{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--teal);cursor:pointer}
+.nav-actions{display:flex;gap:.75rem;align-items:center}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:.7rem 1.4rem;
+  border-radius:100px;font-size:.875rem;z-index:9999;
+  opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap
+}
+#toast.show{opacity:1}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:1rem
+}
+.modal-overlay.hidden{display:none!important}
+.modal{background:var(--warm);border-radius:var(--r2);padding:2rem;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;position:relative}
+.modal h2{font-family:'DM Serif Display',serif;font-size:1.6rem;margin-bottom:.25rem}
+.modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--ink3)}
+
+/* ═══════════════ HOME PAGE ═══════════════ */
+#hero{
+  min-height:90vh;display:flex;align-items:center;
+  padding:5rem 5% 4rem;position:relative;overflow:hidden
+}
+.hero-bg{position:absolute;inset:0;z-index:0;
+  background:radial-gradient(ellipse 60% 55% at 80% 30%,rgba(15,123,108,.07),transparent 60%),
+             radial-gradient(ellipse 40% 45% at 15% 75%,rgba(232,130,12,.06),transparent 55%)}
+.hero-content{position:relative;z-index:1;max-width:580px}
+.hero-pill{display:inline-flex;align-items:center;gap:6px;background:var(--teal-l);color:var(--teal);padding:5px 14px;border-radius:100px;font-size:.8rem;font-weight:500;margin-bottom:1.5rem}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(2.6rem,5.5vw,4.6rem);line-height:1.08;letter-spacing:-.03em;margin-bottom:1.25rem}
+.hero h1 em{font-style:italic;color:var(--teal)}
+.hero p{font-size:1.1rem;color:var(--ink2);font-weight:300;line-height:1.7;max-width:460px;margin-bottom:2rem}
+.hero-search{display:flex;gap:8px;max-width:480px;margin-bottom:1.5rem}
+.hero-search input{flex:1;border-radius:100px;padding:.75rem 1.25rem;border:1.5px solid var(--border)}
+.hero-search input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,123,108,.1)}
+.hero-search button{border-radius:100px;padding:.75rem 1.5rem;background:var(--teal);color:#fff;border:none;cursor:pointer;font-weight:500;white-space:nowrap;transition:background .2s}
+.hero-search button:hover{background:var(--teal2)}
+.hero-stats{display:flex;gap:2rem;flex-wrap:wrap}
+.hstat .num{font-family:'DM Serif Display',serif;font-size:1.8rem;color:var(--teal)}
+.hstat .lbl{font-size:.8rem;color:var(--ink3)}
+.hero-float{position:absolute;right:5%;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:1rem}
+@media(max-width:860px){.hero-float{display:none}}
+.float-card{background:var(--warm);border:1px solid var(--border);border-radius:16px;padding:1rem 1.25rem;min-width:200px;box-shadow:var(--shadow)}
+
+.section{padding:5rem 5%}
+.section-label{font-size:.75rem;font-weight:500;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.6rem}
+.section h2{font-family:'DM Serif Display',serif;font-size:clamp(1.8rem,3.5vw,2.8rem);line-height:1.15;letter-spacing:-.02em;margin-bottom:.75rem}
+.section h2 em{font-style:italic;color:var(--teal)}
+.section-sub{font-size:1rem;color:var(--ink2);font-weight:300;line-height:1.65;max-width:480px;margin-bottom:2.5rem}
+
+/* SHOPS GRID */
+.shops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.shop-card{background:var(--warm);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.shop-card:hover{transform:translateY(-3px);box-shadow:0 10px 32px rgba(0,0,0,.1)}
+.shop-card-img{height:120px;background:linear-gradient(135deg,var(--teal-l),var(--amber-l));display:flex;align-items:center;justify-content:center;font-size:2.5rem}
+.shop-card-body{padding:1rem}
+.shop-card-name{font-weight:500;font-size:1rem;margin-bottom:2px}
+.shop-card-type{font-size:.8rem;color:var(--ink3);margin-bottom:.5rem}
+.shop-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:.5rem}
+.shop-rating{font-size:.82rem;color:var(--amber);font-weight:500}
+.shop-area{font-size:.78rem;color:var(--ink3)}
+
+/* FILTER PILLS */
+.filter-pills{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.pill{padding:5px 14px;border:1.5px solid var(--border);border-radius:100px;font-size:.82rem;cursor:pointer;background:var(--warm);transition:all .15s}
+.pill:hover,.pill.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+/* ═══════════════ SHOP PAGE ═══════════════ */
+.shop-header{padding:2rem 5% 0}
+.shop-cover{height:200px;border-radius:var(--r2);background:linear-gradient(135deg,var(--teal-l) 0%,var(--amber-l) 100%);display:flex;align-items:center;justify-content:center;font-size:4rem;margin-bottom:1.5rem}
+.shop-meta-row{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.shop-name-big{font-family:'DM Serif Display',serif;font-size:2rem;letter-spacing:-.02em;margin-bottom:4px}
+.shop-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin:1.5rem 5% 0;overflow-x:auto}
+.shop-tab{padding:.75rem 1.25rem;font-size:.875rem;cursor:pointer;color:var(--ink3);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.shop-tab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:500}
+.shop-tab-content{padding:1.5rem 5%;display:none}
+.shop-tab-content.active{display:block}
+
+/* TOKEN DISPLAY */
+.token-big{width:100px;height:100px;border-radius:50%;background:var(--teal-l);border:2px solid var(--teal);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto}
+.token-num{font-size:2.2rem;font-weight:500;color:var(--teal);line-height:1}
+.token-lbl{font-size:.7rem;color:var(--teal)}
+
+/* HEATMAP */
+.heatmap-bar{display:flex;gap:4px;align-items:flex-end;height:80px;margin:1rem 0 .5rem}
+.hm-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.hm-bar{width:100%;border-radius:3px;min-height:6px;transition:height .3s}
+.hm-legend{display:flex;gap:10px;font-size:.73rem;color:var(--ink3);margin-top:.5rem;align-items:center}
+.hm-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.day-tabs{display:flex;gap:5px;margin-bottom:.75rem;overflow-x:auto;padding-bottom:2px}
+.dtab{padding:4px 11px;border:1px solid var(--border);border-radius:100px;font-size:.77rem;cursor:pointer;white-space:nowrap;color:var(--ink3);background:var(--warm)}
+.dtab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+/* SLOT GRID */
+.slot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:.75rem 0}
+.slot{padding:.6rem .3rem;border:1.5px solid var(--border);border-radius:var(--r);text-align:center;font-size:.82rem;cursor:pointer;transition:all .15s;background:var(--warm)}
+.slot:hover{border-color:var(--teal)}
+.slot.full{background:var(--cream);color:var(--ink3);cursor:not-allowed;text-decoration:line-through}
+.slot.quiet{border-color:var(--teal-l);color:var(--teal)}
+.slot.selected{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+/* QUEUE LIST */
+.queue-item{display:flex;align-items:center;gap:.75rem;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.queue-item:last-child{border:none}
+.q-circle{width:36px;height:36px;border-radius:50%;background:var(--cream);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:.9rem;flex-shrink:0}
+.q-circle.current{background:var(--teal);color:#fff}
+.q-info{flex:1}
+.q-name{font-size:.9rem;font-weight:500}
+.q-sub{font-size:.78rem;color:var(--ink3)}
+
+/* STARS */
+.stars{color:var(--amber);letter-spacing:2px}
+.stars-input{display:flex;gap:4px;margin:.5rem 0}
+.stars-input span{font-size:1.8rem;cursor:pointer;transition:transform .15s;color:#ddd}
+.stars-input span:hover,.stars-input span.lit{color:var(--amber)}
+.stars-input span:hover{transform:scale(1.15)}
+
+/* REVIEW CARD */
+.review-card{background:var(--warm);border:1px solid var(--border);border-radius:var(--r);padding:1rem;margin-bottom:.75rem}
+
+/* ═══════════════ OWNER DASHBOARD ═══════════════ */
+.dash-layout{display:flex;min-height:calc(100vh - 60px)}
+.dash-sidebar{width:220px;flex-shrink:0;background:var(--warm);border-right:1px solid var(--border);padding:1.5rem 1rem;display:flex;flex-direction:column;gap:.25rem}
+@media(max-width:700px){.dash-sidebar{display:none}}
+.dash-nav-item{display:flex;align-items:center;gap:.6rem;padding:.6rem .75rem;border-radius:var(--r);cursor:pointer;font-size:.875rem;color:var(--ink2);transition:all .15s}
+.dash-nav-item:hover{background:var(--cream)}
+.dash-nav-item.active{background:var(--teal-l);color:var(--teal);font-weight:500}
+.dash-icon{font-size:1rem;width:20px;text-align:center}
+.dash-main{flex:1;padding:2rem;overflow-y:auto}
+.dash-title{font-family:'DM Serif Display',serif;font-size:1.8rem;margin-bottom:1.5rem;letter-spacing:-.02em}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.stat-card{background:var(--cream);border-radius:var(--r);padding:1rem}
+.stat-val{font-size:1.8rem;font-weight:500;color:var(--teal);line-height:1}
+.stat-lbl{font-size:.75rem;color:var(--ink3);margin-top:3px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border:none}
+.sw{width:42px;height:24px;border-radius:100px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.sw.on{background:var(--teal)}
+.sw-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.sw.on .sw-knob{transform:translateX(18px)}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+
+/* ═══════════════ ONBOARDING ═══════════════ */
+.ob-wrap{max-width:620px;margin:0 auto;padding:2.5rem 1.5rem}
+.ob-steps{display:flex;gap:0;margin-bottom:2.5rem;position:relative}
+.ob-step{flex:1;text-align:center;position:relative}
+.ob-step-circle{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);background:var(--warm);display:flex;align-items:center;justify-content:center;margin:0 auto .4rem;font-size:.8rem;font-weight:500;color:var(--ink3);transition:all .2s;position:relative;z-index:2}
+.ob-step.active .ob-step-circle{border-color:var(--teal);background:var(--teal);color:#fff}
+.ob-step.done .ob-step-circle{border-color:var(--teal);background:var(--teal);color:#fff}
+.ob-step-label{font-size:.72rem;color:var(--ink3)}
+.ob-step.active .ob-step-label{color:var(--teal);font-weight:500}
+.ob-line{position:absolute;top:15px;left:50%;right:-50%;height:2px;background:var(--border);z-index:1}
+.ob-step.done .ob-line{background:var(--teal)}
+.ob-step:last-child .ob-line{display:none}
+.ob-screen{display:none}
+.ob-screen.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
+@media(max-width:400px){.type-grid{grid-template-columns:repeat(2,1fr)}}
+.type-tile{border:1.5px solid var(--border);border-radius:var(--r);padding:.9rem .5rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--warm)}
+.type-tile:hover{border-color:var(--teal);background:var(--teal-l)}
+.type-tile.selected{border-color:var(--teal);background:var(--teal-l)}
+.type-tile .ico{font-size:1.6rem;margin-bottom:4px}
+.type-tile .nm{font-size:.78rem;color:var(--ink2)}
+.type-tile.selected .nm{color:var(--teal);font-weight:500}
+.ob-nav{display:flex;align-items:center;justify-content:space-between;margin-top:2rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+.prog-bar{height:3px;background:var(--border);border-radius:2px;margin-bottom:2rem}
+.prog-fill{height:100%;background:var(--teal);border-radius:2px;transition:width .4s ease}
+
+/* HOURS TABLE */
+.ht{width:100%;font-size:.875rem}
+.ht td{padding:6px 0;vertical-align:middle}
+.ht .day{color:var(--ink2);width:90px}
+.time-pair{display:flex;align-items:center;gap:6px}
+.time-pair input{width:110px;padding:5px 8px;font-size:.82rem}
+.time-sep{color:var(--ink3);font-size:.8rem}
+.day-sw{display:flex;align-items:center;gap:8px;cursor:pointer}
+
+/* SERVICE ROWS */
+.svc-row{display:flex;align-items:center;gap:.5rem;background:var(--warm);border:1px solid var(--border);border-radius:var(--r);padding:.65rem .9rem;margin-bottom:.5rem}
+.svc-row input{flex:1;border:none;background:transparent;outline:none;font-size:.9rem;font-family:'DM Sans',sans-serif}
+.svc-dur{width:65px;border:none;border-left:1px solid var(--border);padding-left:8px;background:transparent;outline:none;font-size:.82rem;color:var(--ink2);font-family:'DM Sans',sans-serif}
+.svc-price{width:80px;border:none;border-left:1px solid var(--border);padding-left:8px;background:transparent;outline:none;font-size:.82rem;color:var(--ink2);font-family:'DM Sans',sans-serif}
+.svc-del{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:1.1rem;padding:0 4px;transition:color .15s}
+.svc-del:hover{color:var(--red)}
+.add-svc{display:flex;align-items:center;gap:6px;color:var(--teal);font-size:.875rem;font-weight:500;cursor:pointer;background:none;border:none;padding:4px 0;font-family:'DM Sans',sans-serif}
+.add-svc:hover{opacity:.75}
+
+/* NUM STEPPER */
+.stepper{display:flex;align-items:center;gap:6px}
+.step-btn{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:var(--warm);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;color:var(--ink2);transition:all .15s;user-select:none}
+.step-btn:hover{border-color:var(--teal);color:var(--teal)}
+.step-val{font-size:.95rem;font-weight:500;min-width:30px;text-align:center}
+
+/* SUCCESS */
+.success-wrap{text-align:center;padding:3rem 1rem}
+.success-icon{width:72px;height:72px;border-radius:50%;background:var(--teal-l);border:2px solid var(--teal);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 1.5rem;animation:pop .4s ease}
+@keyframes pop{0%{transform:scale(.5)}80%{transform:scale(1.1)}100%{transform:scale(1)}}
+.qr-mock{width:90px;height:90px;background:var(--ink);border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto}
+
+/* AUTH PAGE */
+.auth-wrap{max-width:400px;margin:5rem auto;padding:0 1.5rem}
+.auth-card{background:var(--warm);border:1px solid var(--border);border-radius:var(--r2);padding:2rem}
+
+/* LIVE BADGE */
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:5px;animation:pulse 2s infinite}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="main-nav">
+  <div class="nav-logo" onclick="showPage('home')">QueUp</div>
+  <div class="nav-actions" id="nav-actions">
+    <button class="btn btn-outline btn-sm" onclick="showPage('login')">Sign in</button>
+    <button class="btn btn-primary btn-sm" onclick="showPage('register')">Add my shop</button>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- MODAL: Join Queue -->
+<div class="modal-overlay hidden" id="modal-queue">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-queue')">✕</button>
+    <h2>Join the queue</h2>
+    <p style="color:var(--ink2);font-size:.9rem;margin-bottom:1.25rem" id="mq-shop-name"></p>
+    <div class="field"><label>Your name <span style="color:var(--red)">*</span></label><input type="text" id="mq-name" placeholder="e.g. Arjun Sharma"/></div>
+    <div class="field"><label>Phone number</label><input type="tel" id="mq-phone" placeholder="+91 98765 43210"/></div>
+    <div class="field"><label>Service</label><select id="mq-service"><option value="">Walk-in / not sure yet</option></select></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitQueue()">Get my token →</button>
+  </div>
+</div>
+
+<!-- MODAL: Book Slot -->
+<div class="modal-overlay hidden" id="modal-book">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-book')">✕</button>
+    <h2>Book a slot</h2>
+    <p style="color:var(--ink2);font-size:.9rem;margin-bottom:1.25rem" id="mb-shop-name"></p>
+    <div class="field"><label>Your name <span style="color:var(--red)">*</span></label><input type="text" id="mb-name" placeholder="e.g. Priya Nair"/></div>
+    <div class="field"><label>Phone <span style="color:var(--red)">*</span></label><input type="tel" id="mb-phone" placeholder="+91 98765 43210"/></div>
+    <div class="field"><label>Service</label><select id="mb-service"><option value="">Any / General visit</option></select></div>
+    <div class="field"><label>Date</label><input type="date" id="mb-date" onchange="loadSlots()"/></div>
+    <div class="field"><label>Time slot</label><div class="slot-grid" id="mb-slots"><p style="color:var(--ink3);font-size:.85rem">Select a date first</p></div></div>
+    <div class="field"><label>Notes <span style="color:var(--ink3);font-weight:300">(optional)</span></label><textarea id="mb-notes" placeholder="Any special request…"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitBooking()">Confirm booking →</button>
+  </div>
+</div>
+
+<!-- MODAL: Leave Review -->
+<div class="modal-overlay hidden" id="modal-review">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-review')">✕</button>
+    <h2>Leave a review</h2>
+    <div class="field"><label>Your name</label><input type="text" id="rv-name" placeholder="Anonymous"/></div>
+    <div class="field">
+      <label>Rating</label>
+      <div class="stars-input" id="rv-stars">
+        <span data-v="1" onclick="setRating(1)">★</span>
+        <span data-v="2" onclick="setRating(2)">★</span>
+        <span data-v="3" onclick="setRating(3)">★</span>
+        <span data-v="4" onclick="setRating(4)">★</span>
+        <span data-v="5" onclick="setRating(5)">★</span>
+      </div>
+    </div>
+    <div class="field"><label>Comment</label><textarea id="rv-comment" placeholder="What did you think?"></textarea></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitReview()">Submit review</button>
+  </div>
+</div>
+
+<!-- ═══════ HOME PAGE ═══════ -->
+<div class="page active" id="page-home">
+  <section id="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-pill"><span class="pulse"></span> Live in Pune & growing</div>
+      <h1>Your wait,<br/><em>finally</em> sorted.</h1>
+      <p>Find local shops, join queues digitally, book time slots, and never waste time waiting in the dark again.</p>
+      <div class="hero-search">
+        <input type="text" id="hero-search" placeholder="Search barbers, clinics, salons…" onkeydown="if(event.key==='Enter')doSearch()"/>
+        <button onclick="doSearch()">Search</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="num">2.4k+</div><div class="lbl">Served this month</div></div>
+        <div class="hstat"><div class="num">38 min</div><div class="lbl">Avg wait saved</div></div>
+        <div class="hstat"><div class="num">60+</div><div class="lbl">Shops live</div></div>
+      </div>
+    </div>
+    <div class="hero-float">
+      <div class="float-card">
+        <div style="font-size:.75rem;color:var(--ink3);margin-bottom:3px">Currently serving</div>
+        <div style="font-size:2rem;font-weight:500;color:var(--teal)" id="live-tok">12</div>
+        <div style="font-size:.8rem;color:var(--ink2)">Raj's Barber · Kothrud</div>
+        <span class="badge badge-green" style="margin-top:6px">3 ahead of you</span>
+      </div>
+      <div class="float-card">
+        <div style="font-size:.75rem;color:var(--ink3);margin-bottom:3px">Best time today</div>
+        <div style="font-size:2rem;font-weight:500;color:var(--amber)">2 pm</div>
+        <div style="font-size:.8rem;color:var(--ink2)">Only 2 bookings</div>
+        <span class="badge badge-amber" style="margin-top:6px">Quiet slot</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="browse-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem">
+      <div>
+        <div class="section-label">Browse shops</div>
+        <h2 style="margin-bottom:0">Shops <em>near you</em></h2>
+      </div>
+      <input type="text" id="filter-search" placeholder="Search…" style="max-width:220px;border-radius:100px;padding:.5rem 1rem" oninput="filterShops()"/>
+    </div>
+    <div class="filter-pills" id="filter-pills">
+      <div class="pill active" onclick="filterByType('',this)">All</div>
+      <div class="pill" onclick="filterByType('Barber shop',this)">💈 Barbers</div>
+      <div class="pill" onclick="filterByType('Clinic',this)">🏥 Clinics</div>
+      <div class="pill" onclick="filterByType('Salon & spa',this)">💅 Salons</div>
+      <div class="pill" onclick="filterByType('Restaurant',this)">🍽️ Restaurants</div>
+      <div class="pill" onclick="filterByType('Diagnostic lab',this)">🧪 Labs</div>
+    </div>
+    <div class="shops-grid" id="shops-grid">
+      <div style="color:var(--ink3);font-size:.9rem;padding:2rem 0">Loading shops…</div>
+    </div>
+  </section>
+
+  <section class="section" style="background:var(--ink);border-radius:32px;margin:0 3%;padding:4rem 5%">
+    <div style="color:rgba(255,255,255,.5);font-size:.75rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.6rem">For shop owners</div>
+    <h2 style="color:#fff;font-family:'DM Serif Display',serif;font-size:clamp(1.8rem,3vw,2.6rem);margin-bottom:.75rem">
+      Run a shop? <em style="color:var(--teal2)">QueUp it.</em>
+    </h2>
+    <p style="color:rgba(255,255,255,.55);font-weight:300;line-height:1.65;max-width:460px;margin-bottom:2rem">
+      Free setup in 5 minutes. Manage your queue, bookings and get crowd insights — all from one dashboard.
+    </p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      <button class="btn" style="background:#fff;color:var(--teal);font-weight:500" onclick="showPage('register')">Add my shop — free →</button>
+      <button class="btn" style="background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.3)" onclick="showPage('login')">Sign in</button>
+    </div>
+  </section>
+  <div style="height:4rem"></div>
+</div>
+
+<!-- ═══════ SHOP PAGE ═══════ -->
+<div class="page" id="page-shop">
+  <div class="shop-header">
+    <div style="margin-bottom:1rem"><button class="btn btn-outline btn-sm" onclick="showPage('home')">← Back</button></div>
+    <div class="shop-cover" id="sp-cover">🏪</div>
+    <div class="shop-meta-row">
+      <div>
+        <div class="shop-name-big" id="sp-name">Shop Name</div>
+        <div style="color:var(--ink3);font-size:.875rem;margin-bottom:.5rem" id="sp-type-area"></div>
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+          <span class="badge badge-green" id="sp-status">Open</span>
+          <span style="font-size:.82rem;color:var(--amber);font-weight:500" id="sp-rating"></span>
+          <span style="font-size:.82rem;color:var(--ink3)" id="sp-addr"></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="openModal('modal-review')">★ Review</button>
+        <button class="btn btn-outline btn-sm" id="sp-book-btn" onclick="openBookModal()">📅 Book slot</button>
+        <button class="btn btn-primary btn-sm" id="sp-queue-btn" onclick="openQueueModal()">🎫 Join queue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="shop-tabs">
+    <div class="shop-tab active" onclick="shopTab('queue',this)">Live Queue</div>
+    <div class="shop-tab" onclick="shopTab('book',this)">Book a Slot</div>
+    <div class="shop-tab" onclick="shopTab('hours',this)">Hours & Info</div>
+    <div class="shop-tab" onclick="shopTab('reviews',this)">Reviews</div>
+  </div>
+
+  <!-- QUEUE TAB -->
+  <div class="shop-tab-content active" id="st-queue">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem">
+      <div class="card" style="text-align:center">
+        <div class="token-big" id="sp-current-tok"><div class="token-num" id="sp-tok-num">—</div><div class="token-lbl">serving</div></div>
+        <div style="font-size:.8rem;color:var(--ink3);margin-top:.75rem">Current token</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:2.2rem;font-weight:500;color:var(--ink);line-height:1" id="sp-waiting">—</div>
+        <div style="font-size:.8rem;color:var(--ink3);margin-top:.4rem">Waiting now</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:2.2rem;font-weight:500;color:var(--teal);line-height:1" id="sp-wait-time">—</div>
+        <div style="font-size:.8rem;color:var(--ink3);margin-top:.4rem">Est. wait (min)</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.25rem">
+      <div style="font-size:.75rem;font-weight:500;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.75rem">People in queue</div>
+      <div id="sp-queue-list"><div style="color:var(--ink3);font-size:.875rem">No one in queue yet — be the first!</div></div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="openQueueModal()">🎫 Join this queue</button>
+  </div>
+
+  <!-- BOOK TAB -->
+  <div class="shop-tab-content" id="st-book">
+    <div class="card" style="margin-bottom:1rem">
+      <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Busy hours</div>
+      <div class="day-tabs" id="sp-day-tabs"></div>
+      <div class="heatmap-bar" id="sp-heatmap"></div>
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3)"><span>9 am</span><span>5 pm</span></div>
+      <div class="hm-legend">
+        <div class="hm-dot" style="background:#B5D4F4"></div>Quiet
+        <div class="hm-dot" style="background:#378ADD"></div>Moderate
+        <div class="hm-dot" style="background:#185FA5"></div>Busy
+        <div class="hm-dot" style="background:#042C53"></div>Peak
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Smart suggestions</div>
+      <div id="sp-suggestions"></div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:1rem" onclick="openBookModal()">📅 Book a slot</button>
+  </div>
+
+  <!-- HOURS TAB -->
+  <div class="shop-tab-content" id="st-hours">
+    <div class="card" style="margin-bottom:1rem">
+      <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Opening hours</div>
+      <div id="sp-hours-list"></div>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Services</div>
+      <div id="sp-services-list"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem">Share this shop</div>
+      <div style="background:var(--cream);border-radius:var(--r);padding:.75rem 1rem;font-size:.85rem;color:var(--teal);word-break:break-all;cursor:pointer" id="sp-link" onclick="copyLink()"></div>
+      <div style="font-size:.78rem;color:var(--ink3);margin-top:.4rem">Tap to copy link</div>
+    </div>
+  </div>
+
+  <!-- REVIEWS TAB -->
+  <div class="shop-tab-content" id="st-reviews">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div><span style="font-size:1.5rem;font-weight:500;color:var(--amber)" id="sp-rev-avg">—</span> <span style="font-size:.875rem;color:var(--ink3)" id="sp-rev-count"></span></div>
+      <button class="btn btn-outline btn-sm" onclick="openModal('modal-review')">Write a review</button>
+    </div>
+    <div id="sp-reviews-list"><div style="color:var(--ink3);font-size:.875rem">No reviews yet — be the first!</div></div>
+  </div>
+</div>
+
+<!-- ═══════ TOKEN STATUS ═══════ -->
+<div class="page" id="page-token">
+  <div style="max-width:440px;margin:3rem auto;padding:0 1.5rem">
+    <button class="btn btn-outline btn-sm" onclick="history.back()" style="margin-bottom:1.5rem">← Back</button>
+    <div class="card" style="text-align:center;padding:2.5rem">
+      <div style="font-size:.75rem;color:var(--ink3);margin-bottom:1rem" id="tk-shop-name"></div>
+      <div class="token-big" style="margin-bottom:1rem"><div class="token-num" id="tk-my-num">—</div><div class="token-lbl">your token</div></div>
+      <div style="font-size:1rem;font-weight:500;margin-bottom:.4rem" id="tk-status-msg">Waiting…</div>
+      <div style="font-size:.875rem;color:var(--ink3);margin-bottom:1.5rem" id="tk-eta"></div>
+      <div style="display:flex;justify-content:space-between;background:var(--cream);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem">
+        <div><div style="font-size:.75rem;color:var(--ink3)">People ahead</div><div style="font-size:1.2rem;font-weight:500" id="tk-ahead">—</div></div>
+        <div><div style="font-size:.75rem;color:var(--ink3)">Currently serving</div><div style="font-size:1.2rem;font-weight:500" id="tk-current">—</div></div>
+        <div><div style="font-size:.75rem;color:var(--ink3)">Est. wait</div><div style="font-size:1.2rem;font-weight:500;color:var(--teal)" id="tk-wait">—</div></div>
+      </div>
+      <div style="font-size:.78rem;color:var(--ink3)">Page auto-refreshes every 30 seconds</div>
+    </div>
+    <div style="text-align:center;margin-top:1rem">
+      <button class="btn btn-outline" onclick="refreshToken()" id="tk-refresh-btn">🔄 Refresh status</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ AUTH PAGES ═══════ -->
+<div class="page" id="page-login">
+  <div class="auth-wrap">
+    <div style="margin-bottom:1.5rem"><button class="btn btn-outline btn-sm" onclick="showPage('home')">← Home</button></div>
+    <div class="auth-card">
+      <h2 class="serif" style="font-size:1.8rem;margin-bottom:.25rem">Welcome back</h2>
+      <p style="color:var(--ink3);font-size:.875rem;margin-bottom:1.5rem">Sign in to your owner account</p>
+      <div class="field"><label>Email</label><input type="email" id="li-email" placeholder="you@example.com"/></div>
+      <div class="field"><label>Password</label><input type="password" id="li-pass" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem" onclick="doLogin()">Sign in →</button>
+      <div style="text-align:center;margin-top:1.25rem;font-size:.875rem;color:var(--ink3)">No account? <a href="#" style="color:var(--teal);font-weight:500" onclick="showPage('register')">Add your shop</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-register">
+  <div class="auth-wrap">
+    <div style="margin-bottom:1.5rem"><button class="btn btn-outline btn-sm" onclick="showPage('home')">← Home</button></div>
+    <div class="auth-card">
+      <span class="tag" style="margin-bottom:.75rem;display:inline-block">Free forever</span>
+      <h2 class="serif" style="font-size:1.8rem;margin-bottom:.25rem">Create your account</h2>
+      <p style="color:var(--ink3);font-size:.875rem;margin-bottom:1.5rem">Start managing your queue in minutes</p>
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0"><label>Full name</label><input type="text" id="rg-name" placeholder="Raj Kumar"/></div>
+        <div class="field" style="margin-bottom:0"><label>Phone</label><input type="tel" id="rg-phone" placeholder="+91 98765 43210"/></div>
+      </div>
+      <div class="field" style="margin-top:.9rem"><label>Email</label><input type="email" id="rg-email" placeholder="you@example.com"/></div>
+      <div class="field"><label>Password</label><input type="password" id="rg-pass" placeholder="Min 6 characters"/></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem" onclick="doRegister()">Create account →</button>
+      <div style="text-align:center;margin-top:1.25rem;font-size:.875rem;color:var(--ink3)">Have an account? <a href="#" style="color:var(--teal);font-weight:500" onclick="showPage('login')">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ONBOARDING ═══════ -->
+<div class="page" id="page-onboard">
+  <div class="ob-wrap">
+    <div class="nav-logo" style="margin-bottom:1.5rem;cursor:default">QueUp</div>
+    <div class="prog-bar"><div class="prog-fill" id="ob-prog" style="width:20%"></div></div>
+    <div class="ob-steps" id="ob-steps-nav"></div>
+
+    <!-- S1 -->
+    <div class="ob-screen active" id="ob-s1">
+      <span class="tag">Step 1 of 5</span>
+      <h2 class="serif" style="font-size:1.9rem;margin:.75rem 0 .4rem">Tell us about <em class="teal">your shop</em></h2>
+      <p style="color:var(--ink2);font-size:.9rem;font-weight:300;margin-bottom:1.5rem">Basic info customers will see on your listing</p>
+      <div class="field"><label>Shop name *</label><input type="text" id="ob-name" placeholder="e.g. Raj's Barber Shop" oninput="updateObPreview()"/></div>
+      <div class="field">
+        <label>Shop type *</label>
+        <div class="type-grid" id="ob-type-grid">
+          <div class="type-tile selected" data-t="Barber shop" onclick="selectOBType(this)"><div class="ico">💈</div><div class="nm">Barber</div></div>
+          <div class="type-tile" data-t="Clinic" onclick="selectOBType(this)"><div class="ico">🏥</div><div class="nm">Clinic</div></div>
+          <div class="type-tile" data-t="Salon & spa" onclick="selectOBType(this)"><div class="ico">💅</div><div class="nm">Salon & spa</div></div>
+          <div class="type-tile" data-t="Restaurant" onclick="selectOBType(this)"><div class="ico">🍽️</div><div class="nm">Restaurant</div></div>
+          <div class="type-tile" data-t="Diagnostic lab" onclick="selectOBType(this)"><div class="ico">🧪</div><div class="nm">Lab</div></div>
+          <div class="type-tile" data-t="Other shop" onclick="selectOBType(this)"><div class="ico">🏪</div><div class="nm">Other</div></div>
+        </div>
+      </div>
+      <div class="field"><label>Phone</label><input type="tel" id="ob-phone" placeholder="+91 98765 43210"/></div>
+      <div class="field"><label>Short description</label><textarea id="ob-desc" placeholder="What makes your shop great?"></textarea></div>
+      <div class="ob-nav"><div></div><button class="btn btn-primary" onclick="obNext(2)">Continue →</button></div>
+    </div>
+
+    <!-- S2 -->
+    <div class="ob-screen" id="ob-s2">
+      <span class="tag">Step 2 of 5</span>
+      <h2 class="serif" style="font-size:1.9rem;margin:.75rem 0 .4rem">Where are <em class="teal">you located?</em></h2>
+      <p style="color:var(--ink2);font-size:.9rem;font-weight:300;margin-bottom:1.5rem">So nearby customers can find you</p>
+      <div class="field"><label>Street address *</label><input type="text" id="ob-addr" placeholder="Shop 4, Ganesh Nagar, Kothrud"/></div>
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0"><label>Area *</label><input type="text" id="ob-area" placeholder="Kothrud"/></div>
+        <div class="field" style="margin-bottom:0"><label>City</label><input type="text" id="ob-city" value="Pune"/></div>
+      </div>
+      <div class="field" style="margin-top:.9rem"><label>PIN code</label><input type="text" id="ob-pin" placeholder="411038" style="max-width:160px"/></div>
+      <div class="field"><label>Landmark</label><input type="text" id="ob-landmark" placeholder="Near Croma, opp. Domino's"/></div>
+      <div class="ob-nav">
+        <button class="btn btn-outline" onclick="obGo(1)">← Back</button>
+        <button class="btn btn-primary" onclick="obNext(3)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- S3 -->
+    <div class="ob-screen" id="ob-s3">
+      <span class="tag">Step 3 of 5</span>
+      <h2 class="serif" style="font-size:1.9rem;margin:.75rem 0 .4rem">Hours & <em class="teal">capacity</em></h2>
+      <p style="color:var(--ink2);font-size:.9rem;font-weight:300;margin-bottom:1.5rem">Set when you're open and how many you can handle</p>
+      <div class="field">
+        <label>Opening hours</label>
+        <table class="ht" id="ob-hours-tbl"></table>
+      </div>
+      <div class="field" style="margin-top:1rem">
+        <label>Capacity</label>
+        <div class="card" style="padding:.75rem 1rem">
+          <div class="toggle-row">
+            <div><div style="font-size:.875rem;font-weight:500">Clients per slot</div><div style="font-size:.75rem;color:var(--ink3)">Simultaneous clients</div></div>
+            <div class="stepper"><button class="step-btn" onclick="stepCap('slots',-1)">−</button><div class="step-val" id="cap-slots">3</div><button class="step-btn" onclick="stepCap('slots',1)">+</button></div>
+          </div>
+          <div class="toggle-row">
+            <div><div style="font-size:.875rem;font-weight:500">Max queue size</div><div style="font-size:.75rem;color:var(--ink3)">Stop after this many</div></div>
+            <div class="stepper"><button class="step-btn" onclick="stepCap('queue',-5)">−</button><div class="step-val" id="cap-queue">20</div><button class="step-btn" onclick="stepCap('queue',5)">+</button></div>
+          </div>
+          <div class="toggle-row">
+            <div><div style="font-size:.875rem;font-weight:500">Slot duration (min)</div><div style="font-size:.75rem;color:var(--ink3)">Avg time per client</div></div>
+            <div class="stepper"><button class="step-btn" onclick="stepCap('dur',-5)">−</button><div class="step-val" id="cap-dur">15</div><button class="step-btn" onclick="stepCap('dur',5)">+</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="btn btn-outline" onclick="obGo(2)">← Back</button>
+        <button class="btn btn-primary" onclick="obNext(4)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- S4 -->
+    <div class="ob-screen" id="ob-s4">
+      <span class="tag">Step 4 of 5</span>
+      <h2 class="serif" style="font-size:1.9rem;margin:.75rem 0 .4rem">What do you <em class="teal">offer?</em></h2>
+      <p style="color:var(--ink2);font-size:.9rem;font-weight:300;margin-bottom:1.5rem">Add services with duration & price</p>
+      <div class="field">
+        <label>Services <span style="font-weight:300;color:var(--ink3)">— name / minutes / ₹price</span></label>
+        <div id="ob-svc-list"></div>
+        <button class="add-svc" onclick="addSvc()">＋ Add service</button>
+      </div>
+      <div class="field">
+        <label>Walk-in policy</label>
+        <select id="ob-walkin">
+          <option value="both">Both walk-ins and bookings</option>
+          <option value="walkin">Walk-ins only</option>
+          <option value="booking">Bookings only</option>
+        </select>
+      </div>
+      <div class="ob-nav">
+        <button class="btn btn-outline" onclick="obGo(3)">← Back</button>
+        <button class="btn btn-primary" onclick="obNext(5)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- S5 REVIEW -->
+    <div class="ob-screen" id="ob-s5">
+      <span class="tag" style="background:var(--amber-l);color:var(--amber)">Step 5 of 5</span>
+      <h2 class="serif" style="font-size:1.9rem;margin:.75rem 0 .4rem">Almost <em class="teal">there!</em></h2>
+      <p style="color:var(--ink2);font-size:.9rem;font-weight:300;margin-bottom:1.5rem">Review your details and go live</p>
+      <div class="card" id="ob-review" style="margin-bottom:1.25rem"></div>
+      <div class="ob-nav">
+        <button class="btn btn-outline" onclick="obGo(4)">← Back</button>
+        <button class="btn btn-primary" style="background:#1D9E8A" onclick="submitShop()">🎉 Go live!</button>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="ob-screen" id="ob-done">
+      <div class="success-wrap">
+        <div class="success-icon">✓</div>
+        <h2 class="serif" style="font-size:2rem;margin-bottom:.5rem">You're <em class="teal">live!</em></h2>
+        <p style="color:var(--ink2);font-weight:300;line-height:1.65;max-width:360px;margin:0 auto 1.5rem">Your shop is now on QueUp. Share the link with your customers!</p>
+        <div class="card" style="display:inline-block;text-align:center;margin-bottom:1.5rem">
+          <div style="font-size:.75rem;color:var(--ink3);margin-bottom:.5rem">Your QueUp link</div>
+          <div style="color:var(--teal);font-weight:500;font-size:.95rem" id="ob-live-link"></div>
+        </div>
+        <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="showPage('dashboard')">Open dashboard →</button>
+          <button class="btn btn-outline" onclick="copyObLink()">Copy link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ OWNER DASHBOARD ═══════ -->
+<div class="page" id="page-dashboard">
+  <div class="dash-layout">
+    <aside class="dash-sidebar">
+      <div class="nav-logo" style="margin-bottom:1.5rem;font-size:1.2rem">QueUp</div>
+      <div class="dash-nav-item active" onclick="dashTab('overview',this)"><span class="dash-icon">📊</span>Overview</div>
+      <div class="dash-nav-item" onclick="dashTab('queue',this)"><span class="dash-icon">🎫</span>Live Queue</div>
+      <div class="dash-nav-item" onclick="dashTab('bookings',this)"><span class="dash-icon">📅</span>Bookings</div>
+      <div class="dash-nav-item" onclick="dashTab('insights',this)"><span class="dash-icon">💡</span>Insights</div>
+      <div class="dash-nav-item" onclick="dashTab('settings',this)"><span class="dash-icon">⚙️</span>Settings</div>
+      <div style="margin-top:auto">
+        <div class="dash-nav-item" onclick="doLogout()"><span class="dash-icon">🚪</span>Sign out</div>
+      </div>
+    </aside>
+
+    <main class="dash-main">
+      <!-- OVERVIEW -->
+      <div id="dt-overview">
+        <div class="dash-title" id="dash-greeting">Good morning 👋</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-val" id="ds-waiting">—</div><div class="stat-lbl">Waiting now</div></div>
+          <div class="stat-card"><div class="stat-val" id="ds-served">—</div><div class="stat-lbl">Served today</div></div>
+          <div class="stat-card"><div class="stat-val" id="ds-bookings">—</div><div class="stat-lbl">Bookings today</div></div>
+          <div class="stat-card"><div class="stat-val" id="ds-rating">—</div><div class="stat-lbl">Your rating</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:1rem">
+          <div style="font-size:.75rem;font-weight:500;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.75rem">Shop controls</div>
+          <div class="toggle-row">
+            <div><div style="font-size:.9rem;font-weight:500">Shop open</div><div style="font-size:.78rem;color:var(--ink3)">Toggle to open / close your shop</div></div>
+            <div class="sw" id="sw-open" onclick="toggleShop('is_open')"><div class="sw-knob"></div></div>
+          </div>
+          <div class="toggle-row">
+            <div><div style="font-size:.9rem;font-weight:500">Accepting queue</div><div style="font-size:.78rem;color:var(--ink3)">Pause without closing the shop</div></div>
+            <div class="sw" id="sw-queue" onclick="toggleShop('is_accepting_queue')"><div class="sw-knob"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:.75rem;font-weight:500;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.75rem">Recent reviews</div>
+          <div id="ds-reviews"><div style="color:var(--ink3);font-size:.875rem">No reviews yet</div></div>
+        </div>
+      </div>
+
+      <!-- QUEUE -->
+      <div id="dt-queue" class="hidden">
+        <div class="dash-title">Live Queue 🎫</div>
+        <div style="display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="callNext()">✅ Call next</button>
+          <button class="btn btn-outline" onclick="loadDashQueue()">🔄 Refresh</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:1.25rem">
+          <div class="stat-card"><div class="stat-val" id="dq-current">—</div><div class="stat-lbl">Serving now</div></div>
+          <div class="stat-card"><div class="stat-val" id="dq-waiting">—</div><div class="stat-lbl">Waiting</div></div>
+          <div class="stat-card"><div class="stat-val" id="dq-served">—</div><div class="stat-lbl">Done today</div></div>
+        </div>
+        <div class="card">
+          <div id="dq-list"><div style="color:var(--ink3);font-size:.875rem">Queue is empty</div></div>
+        </div>
+      </div>
+
+      <!-- BOOKINGS -->
+      <div id="dt-bookings" class="hidden">
+        <div class="section-head">
+          <div class="dash-title" style="margin:0">Bookings 📅</div>
+          <input type="date" id="db-date" onchange="loadBookings()" style="max-width:180px"/>
+        </div>
+        <div class="card">
+          <div id="db-list"><div style="color:var(--ink3);font-size:.875rem">Select a date to view bookings</div></div>
+        </div>
+      </div>
+
+      <!-- INSIGHTS -->
+      <div id="dt-insights" class="hidden">
+        <div class="dash-title">Insights 💡</div>
+        <div class="card" style="margin-bottom:1rem">
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Busy hours heatmap</div>
+          <div class="day-tabs" id="ins-day-tabs"></div>
+          <div class="heatmap-bar" id="ins-heatmap"></div>
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3)"><span>9 am</span><span>5 pm</span></div>
+        </div>
+        <div class="card">
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Customers served (last 7 days)</div>
+          <div id="ins-week" style="display:flex;align-items:flex-end;gap:8px;height:80px;margin-bottom:.5rem"></div>
+          <div id="ins-week-labels" style="display:flex;gap:8px;font-size:.72rem;color:var(--ink3)"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="dt-settings" class="hidden">
+        <div class="dash-title">Settings ⚙️</div>
+        <div class="card" style="margin-bottom:1rem">
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Shop info</div>
+          <div class="field"><label>Shop name</label><input type="text" id="st-name"/></div>
+          <div class="field"><label>Description</label><textarea id="st-desc"></textarea></div>
+          <div class="field"><label>Phone</label><input type="tel" id="st-phone"/></div>
+          <div class="field"><label>Address</label><input type="text" id="st-addr"/></div>
+          <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save changes</button>
+        </div>
+        <div class="card">
+          <div style="font-size:.82rem;font-weight:500;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem">Your shop link</div>
+          <div style="background:var(--cream);border-radius:var(--r);padding:.75rem 1rem;font-size:.875rem;color:var(--teal);cursor:pointer" id="st-link" onclick="copyDashLink()"></div>
+          <div style="font-size:.75rem;color:var(--ink3);margin-top:.4rem">Share this link with customers to join your queue</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const API = '';
+let state = {
+  token: localStorage.getItem('queup_token'),
+  owner: JSON.parse(localStorage.getItem('queup_owner') || 'null'),
+  shops: [],
+  currentShop: null,
+  currentShopData: null,
+  selectedSlot: null,
+  reviewRating: 0,
+  obStep: 1,
+  obType: 'Barber shop',
+  caps: { slots: 3, queue: 20, dur: 15 },
+  newShopSlug: null,
+  tokenId: null,
+  dashShop: null,
+  dashTab: 'overview',
+  busyData: null,
+  allShops: [],
+  filteredType: ''
+};
+
+// ─── UTILS ───
+function $(id) { return document.getElementById(id); }
+function toast(msg, dur=2500) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (state.token) opts.headers['Authorization'] = `Bearer ${state.token}`;
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Error');
+  return data;
+}
+
+// ─── PAGES ───
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  $(`page-${name}`).classList.add('active');
+  updateNav();
+  if (name === 'home') loadShops();
+  if (name === 'dashboard') loadDashboard();
+  window.scrollTo(0, 0);
+}
+
+function updateNav() {
+  const na = $('nav-actions');
+  if (state.token && state.owner) {
+    na.innerHTML = `
+      <span style="font-size:.85rem;color:var(--ink2)">${state.owner.name}</span>
+      <button class="btn btn-primary btn-sm" onclick="showPage('dashboard')">Dashboard</button>`;
+  } else {
+    na.innerHTML = `
+      <button class="btn btn-outline btn-sm" onclick="showPage('login')">Sign in</button>
+      <button class="btn btn-primary btn-sm" onclick="showPage('register')">Add my shop</button>`;
+  }
+}
+
+// ─── MODALS ───
+function openModal(id) { $(id).classList.remove('hidden'); }
+function closeModal(id) { $(id).classList.add('hidden'); }
+
+// ─── HOME ───
+async function loadShops() {
+  try {
+    const shops = await api('/api/shops/search?city=Pune');
+    state.allShops = shops;
+    renderShops(shops);
+  } catch { $('shops-grid').innerHTML = '<div style="color:var(--ink3);font-size:.9rem">Could not load shops.</div>'; }
+}
+
+function shopEmoji(type) {
+  const m = {'Barber shop':'💈','Clinic':'🏥','Salon & spa':'💅','Restaurant':'🍽️','Diagnostic lab':'🧪'};
+  return m[type] || '🏪';
+}
+
+function renderShops(shops) {
+  const g = $('shops-grid');
+  if (!shops.length) { g.innerHTML = '<div style="color:var(--ink3);font-size:.9rem;padding:2rem 0">No shops found. Be the first to add one!</div>'; return; }
+  g.innerHTML = shops.map(s => `
+    <div class="shop-card" onclick="openShop('${s.slug}')">
+      <div class="shop-card-img">${shopEmoji(s.type)}</div>
+      <div class="shop-card-body">
+        <div class="shop-card-name">${s.name}</div>
+        <div class="shop-card-type">${s.type}</div>
+        ${s.description ? `<div style="font-size:.8rem;color:var(--ink3);margin-bottom:.25rem">${s.description.slice(0,60)}${s.description.length>60?'…':''}</div>` : ''}
+        <div class="shop-card-meta">
+          <span class="${s.is_open ? 'badge-green' : 'badge-red'} badge">${s.is_open ? '● Open' : '● Closed'}</span>
+          <div style="text-align:right">
+            ${s.rating > 0 ? `<div class="shop-rating">★ ${s.rating}</div>` : ''}
+            <div class="shop-area">${s.area || s.city}</div>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function filterByType(type, el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  state.filteredType = type;
+  filterShops();
+}
+
+function filterShops() {
+  const q = $('filter-search').value.toLowerCase();
+  let shops = state.allShops;
+  if (state.filteredType) shops = shops.filter(s => s.type === state.filteredType);
+  if (q) shops = shops.filter(s => s.name.toLowerCase().includes(q) || (s.area||'').toLowerCase().includes(q) || s.type.toLowerCase().includes(q));
+  renderShops(shops);
+}
+
+function doSearch() {
+  const q = $('hero-search').value;
+  $('filter-search').value = q;
+  $('browse-section').scrollIntoView({ behavior: 'smooth' });
+  filterShops();
+}
+
+// ─── SHOP PAGE ───
+async function openShop(slug) {
+  showPage('shop');
+  state.currentShop = slug;
+  try {
+    const d = await api(`/api/shops/${slug}`);
+    state.currentShopData = d;
+    renderShopPage(d);
+  } catch(e) { toast('Could not load shop'); }
+}
+
+function renderShopPage(d) {
+  const { shop, hours, services, queue, reviews, busy } = d;
+  $('sp-cover').textContent = shopEmoji(shop.type);
+  $('sp-name').textContent = shop.name;
+  $('sp-type-area').textContent = `${shop.type} · ${shop.area || shop.city}`;
+  $('sp-status').textContent = shop.is_open ? '● Open' : '● Closed';
+  $('sp-status').className = `badge ${shop.is_open ? 'badge-green' : 'badge-red'}`;
+  $('sp-rating').textContent = shop.rating > 0 ? `★ ${shop.rating} (${shop.total_ratings})` : '';
+  $('sp-addr').textContent = [shop.address, shop.area, shop.city].filter(Boolean).join(', ');
+  $('sp-link').textContent = `${location.origin}/shop/${shop.slug}`;
+
+  // Queue
+  const current = queue.find(q => q.status === 'called');
+  const waiting = queue.filter(q => q.status === 'waiting');
+  $('sp-tok-num').textContent = current ? current.token_number : '—';
+  $('sp-waiting').textContent = waiting.length;
+  $('sp-wait-time').textContent = waiting.length * (shop.slot_duration_mins || 15);
+  $('sp-queue-list').innerHTML = queue.length ? queue.map(q => `
+    <div class="queue-item">
+      <div class="q-circle ${q.status==='called'?'current':''}">${q.token_number}</div>
+      <div class="q-info">
+        <div class="q-name">${q.customer_name}</div>
+        <div class="q-sub">${q.status==='called'?'<span style="color:var(--teal)">Being served</span>':`~${(queue.indexOf(q))*shop.slot_duration_mins} min wait`}</div>
+      </div>
+      <span class="badge ${q.status==='called'?'badge-teal':'badge-amber'}">${q.status}</span>
+    </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">Queue is empty — walk right in!</div>';
+
+  // Hours
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  $('sp-hours-list').innerHTML = hours.map(h => `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.875rem">
+      <span style="color:var(--ink2)">${dayNames[h.day_of_week]}</span>
+      <span>${h.is_closed ? '<span style="color:var(--ink3)">Closed</span>' : `${h.open_time} – ${h.close_time}`}</span>
+    </div>`).join('');
+
+  // Services
+  $('sp-services-list').innerHTML = services.length ? services.map(s => `
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.875rem">
+      <span>${s.name}</span>
+      <span style="color:var(--ink3)">${s.duration_mins} min${s.price ? ` · ₹${s.price}` : ''}</span>
+    </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">No services listed</div>';
+
+  // Populate service dropdowns
+  const opts = services.map(s => `<option value="${s.id}">${s.name} (${s.duration_mins} min)</option>`).join('');
+  $('mq-service').innerHTML = '<option value="">Walk-in / not sure yet</option>' + opts;
+  $('mb-service').innerHTML = '<option value="">Any / General visit</option>' + opts;
+  $('mq-shop-name').textContent = shop.name;
+  $('mb-shop-name').textContent = shop.name;
+  $('rv-stars').querySelectorAll('span').forEach(s => s.classList.remove('lit'));
+  state.reviewRating = 0;
+
+  // Reviews
+  $('sp-rev-avg').textContent = shop.rating > 0 ? `★ ${shop.rating}` : 'No ratings yet';
+  $('sp-rev-count').textContent = shop.total_ratings > 0 ? `${shop.total_ratings} reviews` : '';
+  $('sp-reviews-list').innerHTML = reviews.length ? reviews.map(r => `
+    <div class="review-card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:.4rem">
+        <span style="font-weight:500;font-size:.9rem">${r.customer_name}</span>
+        <span style="color:var(--amber);font-size:.875rem">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span>
+      </div>
+      ${r.comment ? `<p style="font-size:.875rem;color:var(--ink2);line-height:1.55">${r.comment}</p>` : ''}
+      <div style="font-size:.75rem;color:var(--ink3);margin-top:.4rem">${new Date(r.created_at).toLocaleDateString()}</div>
+    </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">No reviews yet — be the first!</div>';
+
+  // Heatmap
+  state.busyData = busy;
+  buildHeatmapTabs('sp-day-tabs', 'sp-heatmap', busy);
+  buildSuggestions(busy);
+}
+
+function buildHeatmapTabs(tabId, hmId, busy) {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  $(tabId).innerHTML = days.map((d,i) => `<div class="dtab ${i===0?'active':''}" onclick="selectHMDay(${i},this,'${hmId}',window._busy)">${d}</div>`).join('');
+  window._busy = busy;
+  renderHeatmap(hmId, busy, 0);
+}
+
+function selectHMDay(dow, el, hmId, busy) {
+  el.closest('.day-tabs').querySelectorAll('.dtab').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  renderHeatmap(hmId, busy, dow);
+}
+
+function renderHeatmap(hmId, busy, dow) {
+  const dayData = busy.filter(b => b.day_of_week === dow).sort((a,b) => a.hour_of_day - b.hour_of_day);
+  if (!dayData.length) { $(hmId).innerHTML = '<div style="color:var(--ink3);font-size:.8rem">No data yet</div>'; return; }
+  const max = Math.max(...dayData.map(d => d.avg_customers), 1);
+  const colors = ['#B5D4F4','#378ADD','#185FA5','#042C53'];
+  $(hmId).innerHTML = dayData.map(d => {
+    const pct = d.avg_customers / max;
+    const ci = pct < .25 ? 0 : pct < .5 ? 1 : pct < .8 ? 2 : 3;
+    return `<div class="hm-col"><div class="hm-bar" style="height:${Math.max(8, Math.round(pct * 72))}px;background:${colors[ci]}"></div></div>`;
+  }).join('');
+}
+
+function buildSuggestions(busy) {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  // Find quietest slot
+  let quietest = { day: 0, hour: 9, val: Infinity };
+  busy.forEach(b => { if (b.avg_customers < quietest.val) { quietest = { day: b.day_of_week, hour: b.hour_of_day, val: b.avg_customers }; } });
+  let busiest = { day: 0, hour: 9, val: 0 };
+  busy.forEach(b => { if (b.avg_customers > busiest.val) { busiest = { day: b.day_of_week, hour: b.hour_of_day, val: b.avg_customers }; } });
+
+  $('sp-suggestions').innerHTML = `
+    <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex-shrink:0">🌿</div>
+      <div>
+        <div style="font-size:.875rem;font-weight:500">${days[quietest.day]} around ${quietest.hour}:00 is the quietest time</div>
+        <div style="font-size:.78rem;color:var(--ink3)">Avg ${Math.round(quietest.val)} people — in and out fast</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:10px 0">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--amber-l);display:flex;align-items:center;justify-content:center;flex-shrink:0">⚠️</div>
+      <div>
+        <div style="font-size:.875rem;font-weight:500">Avoid ${days[busiest.day]} around ${busiest.hour}:00</div>
+        <div style="font-size:.78rem;color:var(--ink3)">Peak time — avg ${Math.round(busiest.val)} people waiting</div>
+      </div>
+    </div>`;
+}
+
+function shopTab(name, el) {
+  document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.shop-tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  $(`st-${name}`).classList.add('active');
+}
+
+function copyLink() {
+  navigator.clipboard.writeText($('sp-link').textContent).then(() => toast('Link copied!'));
+}
+
+// ─── QUEUE ───
+function openQueueModal() { openModal('modal-queue'); }
+
+async function submitQueue() {
+  const name = $('mq-name').value.trim();
+  if (!name) { toast('Please enter your name'); return; }
+  try {
+    const data = await api(`/api/shops/${state.currentShop}/queue/join`, 'POST', {
+      customer_name: name,
+      customer_phone: $('mq-phone').value.trim(),
+      service_id: $('mq-service').value || null
+    });
+    closeModal('modal-queue');
+    toast(`Token #${data.token_number} — ~${data.estimated_wait_mins} min wait`);
+    state.tokenId = data.id;
+    showTokenPage(data);
+  } catch(e) { toast(e.message); }
+}
+
+function showTokenPage(data) {
+  showPage('token');
+  $('tk-shop-name').textContent = data.shop_name;
+  $('tk-my-num').textContent = data.token_number;
+  $('tk-status-msg').textContent = 'You\'re in the queue!';
+  $('tk-eta').textContent = `Estimated wait: ~${data.estimated_wait_mins} min`;
+  $('tk-ahead').textContent = data.position - 1;
+  $('tk-current').textContent = '—';
+  $('tk-wait').textContent = `${data.estimated_wait_mins}m`;
+}
+
+async function refreshToken() {
+  if (!state.tokenId) return;
+  try {
+    const d = await api(`/api/token/${state.tokenId}/status`);
+    $('tk-ahead').textContent = d.ahead;
+    $('tk-current').textContent = d.current_token || '—';
+    $('tk-wait').textContent = `${d.ahead * (d.slot_duration_mins||15)}m`;
+    if (d.status === 'called') { $('tk-status-msg').textContent = "It's your turn! 🎉"; $('tk-eta').textContent = 'Please head to the shop now'; }
+    else if (d.status === 'done') { $('tk-status-msg').textContent = 'You were served ✓'; $('tk-eta').textContent = ''; }
+    toast('Updated!');
+  } catch(e) { toast(e.message); }
+}
+
+// Auto-refresh token every 30s
+setInterval(() => { if ($('page-token').classList.contains('active') && state.tokenId) refreshToken(); }, 30000);
+
+// ─── BOOKING ───
+function openBookModal() {
+  $('mb-date').min = new Date().toISOString().split('T')[0];
+  openModal('modal-book');
+}
+
+async function loadSlots() {
+  const date = $('mb-date').value;
+  if (!date) return;
+  $('mb-slots').innerHTML = '<div style="color:var(--ink3);font-size:.85rem">Loading…</div>';
+  state.selectedSlot = null;
+  try {
+    const d = await api(`/api/shops/${state.currentShop}/slots?date=${date}`);
+    if (d.closed) { $('mb-slots').innerHTML = '<div style="color:var(--ink3);font-size:.85rem">Shop is closed on this day</div>'; return; }
+    $('mb-slots').innerHTML = d.slots.map(s => `
+      <div class="slot ${!s.available?'full':''}" onclick="${s.available?`selectSlot('${s.time}',this)`:''}">${s.time}</div>`).join('');
+  } catch { $('mb-slots').innerHTML = '<div style="color:var(--red);font-size:.85rem">Could not load slots</div>'; }
+}
+
+function selectSlot(time, el) {
+  document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedSlot = time;
+}
+
+async function submitBooking() {
+  const name = $('mb-name').value.trim(), phone = $('mb-phone').value.trim();
+  const date = $('mb-date').value;
+  if (!name || !phone || !date || !state.selectedSlot) { toast('Please fill all required fields and select a slot'); return; }
+  try {
+    const data = await api(`/api/shops/${state.currentShop}/bookings`, 'POST', {
+      customer_name: name, customer_phone: phone,
+      service_id: $('mb-service').value || null,
+      booking_date: date, booking_time: state.selectedSlot,
+      notes: $('mb-notes').value
+    });
+    closeModal('modal-book');
+    toast(`Booked for ${date} at ${state.selectedSlot}! ✓`);
+  } catch(e) { toast(e.message); }
+}
+
+// ─── REVIEWS ───
+function setRating(n) {
+  state.reviewRating = n;
+  $('rv-stars').querySelectorAll('span').forEach((s,i) => s.classList.toggle('lit', i < n));
+}
+
+async function submitReview() {
+  if (!state.reviewRating) { toast('Please select a rating'); return; }
+  try {
+    await api(`/api/shops/${state.currentShop}/reviews`, 'POST', {
+      customer_name: $('rv-name').value || 'Anonymous',
+      rating: state.reviewRating,
+      comment: $('rv-comment').value
+    });
+    closeModal('modal-review');
+    toast('Review submitted, thank you! ⭐');
+    openShop(state.currentShop);
+  } catch(e) { toast(e.message); }
+}
+
+// ─── AUTH ───
+async function doLogin() {
+  try {
+    const d = await api('/api/auth/login', 'POST', { email: $('li-email').value, password: $('li-pass').value });
+    state.token = d.token; state.owner = d.owner;
+    localStorage.setItem('queup_token', d.token);
+    localStorage.setItem('queup_owner', JSON.stringify(d.owner));
+    toast(`Welcome back, ${d.owner.name}!`);
+    // Check if they have shops
+    const shops = await api('/api/shops/mine');
+    if (shops.length) { state.dashShop = shops[0]; showPage('dashboard'); }
+    else showPage('onboard');
+  } catch(e) { toast(e.message); }
+}
+
+async function doRegister() {
+  try {
+    const d = await api('/api/auth/register', 'POST', {
+      name: $('rg-name').value, email: $('rg-email').value,
+      phone: $('rg-phone').value, password: $('rg-pass').value
+    });
+    state.token = d.token; state.owner = d.owner;
+    localStorage.setItem('queup_token', d.token);
+    localStorage.setItem('queup_owner', JSON.stringify(d.owner));
+    toast(`Account created! Let's set up your shop.`);
+    showPage('onboard');
+    obGo(1);
+  } catch(e) { toast(e.message); }
+}
+
+function doLogout() {
+  state.token = null; state.owner = null; state.dashShop = null;
+  localStorage.removeItem('queup_token'); localStorage.removeItem('queup_owner');
+  showPage('home'); toast('Signed out');
+}
+
+// ─── ONBOARDING ───
+const obStepLabels = ['Basics','Location','Hours','Services','Review'];
+
+function buildObNav() {
+  $('ob-steps-nav').innerHTML = obStepLabels.map((l,i) => `
+    <div class="ob-step ${i+1 < state.obStep ? 'done' : ''} ${i+1 === state.obStep ? 'active' : ''}" id="obs-${i+1}">
+      <div class="ob-step-circle" id="osc-${i+1}">${i+1 < state.obStep ? '✓' : i+1}</div>
+      <div class="ob-step-label">${l}</div>
+      ${i < 4 ? '<div class="ob-line"></div>' : ''}
+    </div>`).join('');
+}
+
+function buildObHours() {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const defs = [{o:'09:00',c:'20:00',on:1},{o:'09:00',c:'20:00',on:1},{o:'09:00',c:'20:00',on:1},{o:'09:00',c:'20:00',on:1},{o:'09:00',c:'20:00',on:1},{o:'10:00',c:'18:00',on:1},{o:'10:00',c:'14:00',on:0}];
+  $('ob-hours-tbl').innerHTML = days.map((d,i) => `
+    <tr>
+      <td class="day">
+        <div class="day-sw" onclick="toggleObDay(${i})">
+          <div class="sw ${defs[i].on?'on':''}" id="ds-${i}"><div class="sw-knob"></div></div>
+          <span style="font-size:.83rem;color:var(--ink2)">${d}</span>
+        </div>
+      </td>
+      <td>
+        <div class="time-pair" id="tp-${i}" ${defs[i].on?'':'style="display:none"'}>
+          <input type="time" value="${defs[i].o}" id="ho-${i}"/>
+          <span class="time-sep">–</span>
+          <input type="time" value="${defs[i].c}" id="hc-${i}"/>
+        </div>
+        <span id="hcl-${i}" style="font-size:.8rem;color:var(--ink3);font-style:italic;${defs[i].on?'display:none':''}">Closed</span>
+      </td>
+    </tr>`).join('');
+}
+
+function toggleObDay(i) {
+  const sw = $(`ds-${i}`), tp = $(`tp-${i}`), cl = $(`hcl-${i}`);
+  const on = sw.classList.toggle('on');
+  tp.style.display = on ? '' : 'none'; cl.style.display = on ? 'none' : '';
+}
+
+function buildObServices() {
+  $('ob-svc-list').innerHTML = '';
+  [['Haircut','20',''],['Haircut + Beard','35',''],['Head massage','15','']].forEach(([n,d,p]) => addSvcRow(n,d,p));
+}
+
+function addSvc() { addSvcRow('','',''); }
+
+function addSvcRow(name='', dur='', price='') {
+  const div = document.createElement('div'); div.className = 'svc-row';
+  div.innerHTML = `
+    <input type="text" placeholder="Service name" value="${name}"/>
+    <input type="number" placeholder="min" value="${dur}" class="svc-dur" min="5" max="300"/>
+    <input type="number" placeholder="₹" value="${price}" class="svc-price" min="0"/>
+    <button class="svc-del" onclick="this.closest('.svc-row').remove()">✕</button>`;
+  $('ob-svc-list').appendChild(div);
+}
+
+function selectOBType(el) {
+  document.querySelectorAll('.type-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected'); state.obType = el.dataset.t;
+}
+
+function stepCap(key, delta) {
+  const limits = { slots:[1,20], queue:[5,100], dur:[5,120] };
+  const [mn, mx] = limits[key];
+  state.caps[key] = Math.min(mx, Math.max(mn, state.caps[key] + delta));
+  $(`cap-${key}`).textContent = state.caps[key];
+}
+
+function obNext(n) {
+  if (n > 1 && n === 2 && !$('ob-name').value.trim()) { toast('Please enter your shop name'); return; }
+  if (n > 2 && n === 3 && !$('ob-addr').value.trim()) { toast('Please enter your address'); return; }
+  obGo(n);
+}
+
+function obGo(n) {
+  $(`ob-s${state.obStep}`).classList.remove('active');
+  state.obStep = n;
+  $(`ob-s${n}`).classList.add('active');
+  $('ob-prog').style.width = `${(n/5)*100}%`;
+  buildObNav();
+  if (n === 5) buildObReview();
+  window.scrollTo(0,0);
+}
+
+function buildObReview() {
+  const rows = [
+    ['Shop name', $('ob-name').value || '—'],
+    ['Type', state.obType],
+    ['Phone', $('ob-phone').value || '—'],
+    ['Address', [$('ob-addr').value, $('ob-area').value, $('ob-city').value].filter(Boolean).join(', ') || '—'],
+    ['Clients/slot', state.caps.slots],
+    ['Max queue', state.caps.queue],
+    ['Slot duration', `${state.caps.dur} min`],
+  ];
+  $('ob-review').innerHTML = rows.map((r,i) => `
+    <div style="display:flex;justify-content:space-between;padding:8px 0;${i?'border-top:1px solid var(--border)':''}">
+      <span style="font-size:.8rem;color:var(--ink3)">${r[0]}</span>
+      <span style="font-size:.875rem;font-weight:500;max-width:60%;text-align:right">${r[1]}</span>
+    </div>`).join('');
+}
+
+function getObHours() {
+  const days = 7; const h = [];
+  for (let i = 0; i < days; i++) {
+    const sw = $(`ds-${i}`), o = $(`ho-${i}`), c = $(`hc-${i}`);
+    h.push({ open: o?.value||'09:00', close: c?.value||'20:00', closed: !sw?.classList.contains('on') });
+  }
+  return h;
+}
+
+function getObServices() {
+  return Array.from($('ob-svc-list').querySelectorAll('.svc-row')).map(row => {
+    const ins = row.querySelectorAll('input');
+    return { name: ins[0].value, duration: parseInt(ins[1].value)||15, price: parseInt(ins[2].value)||null };
+  }).filter(s => s.name.trim());
+}
+
+async function submitShop() {
+  try {
+    const d = await api('/api/shops', 'POST', {
+      name: $('ob-name').value, type: state.obType,
+      description: $('ob-desc').value, phone: $('ob-phone').value,
+      address: $('ob-addr').value, area: $('ob-area').value,
+      city: $('ob-city').value, pin: $('ob-pin').value,
+      landmark: $('ob-landmark').value,
+      max_queue_size: state.caps.queue, slots_per_hour: state.caps.slots,
+      slot_duration_mins: state.caps.dur,
+      walk_in_policy: $('ob-walkin').value,
+      hours: getObHours(), services: getObServices()
+    });
+    state.newShopSlug = d.slug;
+    $('ob-live-link').textContent = `${location.origin}/shop/${d.slug}`;
+    $(`ob-s5`).classList.remove('active');
+    $('ob-done').classList.add('active');
+    $('ob-prog').style.width = '100%';
+    const shops = await api('/api/shops/mine');
+    if (shops.length) state.dashShop = shops[0];
+    updateNav();
+  } catch(e) { toast(e.message); }
+}
+
+function copyObLink() {
+  navigator.clipboard.writeText($('ob-live-link').textContent).then(() => toast('Link copied!'));
+}
+
+// ─── DASHBOARD ───
+async function loadDashboard() {
+  if (!state.token) { showPage('login'); return; }
+  const h = new Date().getHours();
+  $('dash-greeting').textContent = `${h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}, ${state.owner?.name?.split(' ')[0] || ''} 👋`;
+
+  try {
+    const shops = await api('/api/shops/mine');
+    if (!shops.length) { showPage('onboard'); return; }
+    state.dashShop = shops[0];
+    loadDashStats();
+    loadDashQueue();
+    const today = new Date().toISOString().split('T')[0];
+    $('db-date').value = today;
+    $('st-name').value = shops[0].name;
+    $('st-desc').value = shops[0].description || '';
+    $('st-phone').value = shops[0].phone || '';
+    $('st-addr').value = shops[0].address || '';
+    $('st-link').textContent = `${location.origin}/shop/${shops[0].slug}`;
+    $('sw-open').classList.toggle('on', !!shops[0].is_open);
+    $('sw-queue').classList.toggle('on', !!shops[0].is_accepting_queue);
+  } catch(e) { toast(e.message); }
+}
+
+async function loadDashStats() {
+  if (!state.dashShop) return;
+  try {
+    const d = await api(`/api/shops/${state.dashShop.id}/stats`);
+    $('ds-waiting').textContent = d.waiting_now;
+    $('ds-served').textContent = d.served_today;
+    $('ds-bookings').textContent = d.bookings_today;
+    $('ds-rating').textContent = d.shop.rating > 0 ? `★ ${d.shop.rating}` : '—';
+    $('ds-reviews').innerHTML = d.recent_reviews.length ? d.recent_reviews.map(r => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;font-size:.85rem">
+          <span style="font-weight:500">${r.customer_name}</span>
+          <span style="color:var(--amber)">${'★'.repeat(r.rating)}</span>
+        </div>
+        ${r.comment ? `<div style="font-size:.8rem;color:var(--ink2);margin-top:2px">${r.comment}</div>` : ''}
+      </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">No reviews yet</div>';
+
+    // Insights
+    state.busyData = d.busy;
+    buildHeatmapTabs('ins-day-tabs', 'ins-heatmap', d.busy);
+
+    // Week chart
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const last7 = [...Array(7)].map((_, i) => {
+      const d2 = new Date(); d2.setDate(d2.getDate() - 6 + i);
+      return d2.toISOString().split('T')[0];
+    });
+    const served = {};
+    d.week_served.forEach(w => served[w.date] = w.c);
+    const max = Math.max(...last7.map(d2 => served[d2]||0), 1);
+    $('ins-week').innerHTML = last7.map(d2 => `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="flex:1;width:100%;display:flex;align-items:flex-end">
+          <div style="width:100%;background:#B5D4F4;border-radius:4px;height:${Math.max(4, Math.round(((served[d2]||0)/max)*72))}px"></div>
+        </div>
+        <div style="font-size:.7rem;color:var(--teal);font-weight:500">${served[d2]||0}</div>
+      </div>`).join('');
+    $('ins-week-labels').innerHTML = last7.map(d2 => `<div style="flex:1;text-align:center">${new Date(d2).toLocaleDateString('en',{weekday:'short'})}</div>`).join('');
+  } catch(e) {}
+}
+
+async function loadDashQueue() {
+  if (!state.dashShop) return;
+  try {
+    const d = await api(`/api/shops/${state.dashShop.slug}/queue`);
+    $('dq-current').textContent = d.current_token || '—';
+    $('dq-waiting').textContent = d.waiting_count;
+    $('dq-served').textContent = d.served_today;
+    const waiting = d.queue.filter(q => q.status === 'waiting');
+    const called = d.queue.filter(q => q.status === 'called');
+    $('dq-list').innerHTML = [...called, ...waiting].length ? [...called, ...waiting].map(q => `
+      <div class="queue-item">
+        <div class="q-circle ${q.status==='called'?'current':''}">${q.token_number}</div>
+        <div class="q-info">
+          <div class="q-name">${q.customer_name}${q.customer_phone ? ` · ${q.customer_phone}` : ''}</div>
+          <div class="q-sub">${q.status==='called'?'<span style="color:var(--teal)">Being served now</span>':`Joined ${new Date(q.joined_at).toLocaleTimeString()}`}</div>
+        </div>
+        <div style="display:flex;gap:.4rem">
+          ${q.status==='waiting' ? `<button class="btn btn-outline btn-sm" onclick="skipToken('${q.id}')">Skip</button>` : ''}
+          <span class="badge ${q.status==='called'?'badge-teal':'badge-amber'}">${q.status}</span>
+        </div>
+      </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">Queue is empty right now</div>';
+  } catch(e) {}
+}
+
+async function callNext() {
+  if (!state.dashShop) return;
+  try {
+    const d = await api(`/api/shops/${state.dashShop.id}/queue/next`, 'POST');
+    toast(d.called ? `Calling token #${d.called.token_number}` : 'Queue is empty');
+    loadDashQueue(); loadDashStats();
+  } catch(e) { toast(e.message); }
+}
+
+async function skipToken(id) {
+  if (!state.dashShop) return;
+  try {
+    await api(`/api/shops/${state.dashShop.id}/queue/skip/${id}`, 'POST');
+    toast('Token skipped'); loadDashQueue();
+  } catch(e) { toast(e.message); }
+}
+
+async function loadBookings() {
+  if (!state.dashShop) return;
+  const date = $('db-date').value;
+  try {
+    const bookings = await api(`/api/shops/${state.dashShop.id}/bookings?date=${date}`);
+    $('db-list').innerHTML = bookings.length ? bookings.map(b => `
+      <div class="queue-item">
+        <div class="q-circle" style="background:var(--teal-l);color:var(--teal);font-size:.72rem;width:40px;height:40px">${b.booking_time}</div>
+        <div class="q-info">
+          <div class="q-name">${b.customer_name}</div>
+          <div class="q-sub">${b.customer_phone}${b.service_name ? ` · ${b.service_name}` : ''}${b.notes ? ` · "${b.notes}"` : ''}</div>
+        </div>
+        <span class="badge badge-${b.status==='confirmed'?'teal':'amber'}">${b.status}</span>
+      </div>`).join('') : '<div style="color:var(--ink3);font-size:.875rem">No bookings for this date</div>';
+  } catch(e) {}
+}
+
+async function toggleShop(field) {
+  if (!state.dashShop) return;
+  const el = field === 'is_open' ? $('sw-open') : $('sw-queue');
+  const newVal = !el.classList.contains('on');
+  el.classList.toggle('on', newVal);
+  try {
+    await api(`/api/shops/${state.dashShop.id}/toggle`, 'POST', { field, value: newVal });
+    toast(field === 'is_open' ? (newVal ? 'Shop is now open' : 'Shop closed') : (newVal ? 'Queue accepting' : 'Queue paused'));
+  } catch(e) { el.classList.toggle('on', !newVal); toast(e.message); }
+}
+
+async function saveSettings() {
+  if (!state.dashShop) return;
+  try {
+    await api(`/api/shops/${state.dashShop.id}`, 'PUT', {
+      name: $('st-name').value, description: $('st-desc').value,
+      phone: $('st-phone').value, address: $('st-addr').value
+    });
+    toast('Settings saved ✓');
+  } catch(e) { toast(e.message); }
+}
+
+function copyDashLink() {
+  navigator.clipboard.writeText($('st-link').textContent).then(() => toast('Link copied!'));
+}
+
+function dashTab(name, el) {
+  document.querySelectorAll('.dash-nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  ['overview','queue','bookings','insights','settings'].forEach(t => $(`dt-${t}`).classList.toggle('hidden', t !== name));
+  if (name === 'queue') loadDashQueue();
+  if (name === 'bookings') loadBookings();
+  if (name === 'insights') loadDashStats();
+}
+
+// ─── INIT ───
+function init() {
+  buildObNav();
+  buildObHours();
+  buildObServices();
+  updateNav();
+  loadShops();
+
+  // Animate hero token
+  let t = 12;
+  setInterval(() => {
+    if (Math.random() > .7) { t++; const el = $('live-tok'); if(el){el.style.transform='scale(1.2)';el.style.transition='transform .2s';el.textContent=t;setTimeout(()=>el.style.transform='scale(1)',200);} }
+  }, 4000);
+
+  // Handle /shop/:slug URL if needed
+  const path = location.pathname;
+  if (path.startsWith('/shop/')) {
+    const slug = path.split('/shop/')[1];
+    if (slug) setTimeout(() => openShop(slug), 100);
+  }
+
+  // Auto-login if token exists
+  if (state.token && state.owner) updateNav();
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

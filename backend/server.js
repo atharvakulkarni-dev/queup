@@ -17,7 +17,7 @@ initDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../frontend/public')));
+app.use(express.static(path.join(__dirname, './public')));
 
 // Rate limiting
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
@@ -391,7 +391,7 @@ app.post('/api/shops/:id/toggle', authMiddleware, (req, res) => {
 // SPA FALLBACK
 // ─────────────────────────────────────────
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
+  res.sendFile(path.join(__dirname, './public/index.html'));
 });
 
 app.listen(PORT, () => console.log(`🚀 QueUp running on http://localhost:${PORT}`));
